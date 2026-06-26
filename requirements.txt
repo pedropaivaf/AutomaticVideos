@@ -1,0 +1,8 @@
+openai
+google-generativeai
+elevenlabs
+pydub
+moviepy==1.0.3
+openai-whisper
+Pillow
+python-dotenv

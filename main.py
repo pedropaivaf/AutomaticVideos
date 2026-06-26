@@ -1,0 +1,59 @@
+import os
+import glob
+from src.roteirista import gerar_roteiro
+from src.audio_engine import gerar_audio_dialogo
+from src.transcritor import extrair_timestamps
+from src.editor_visual import montar_video_splitscreen
+
+def limpar_arquivos_temporarios():
+    """Remove lixos de arquivos que podem ter ficado pela metade em caso de crash."""
+    print("Executando limpeza de emergência...")
+    # Limpa mp3 temporários na raiz (do audio_engine)
+    for temp_file in glob.glob("temp_*.mp3"):
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except Exception as e:
+            print(f"Não foi possível remover o arquivo {temp_file}: {e}")
+            
+def iniciar_esteira():
+    tema = "A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia"
+    print("="*50)
+    print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO 🚀")
+    print(f"Tema: {tema}")
+    print("="*50)
+    
+    try:
+        # 1. Roteiro (LLM)
+        print("\n[1/4] Acionando o Roteirista (OpenAI/LLM)...")
+        json_roteiro = gerar_roteiro(tema, personagem1="Personagem1", personagem2="Personagem2", max_falas=6)
+        if not json_roteiro:
+            raise ValueError("O roteiro falhou ao ser gerado ou retornou vazio.")
+            
+        # 2. Áudio (ElevenLabs + Pydub)
+        print("\n[2/4] Acionando o Diretor de Áudio (ElevenLabs + Pydub)...")
+        audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Personagem1", personagem2="Personagem2")
+        
+        # 3. Transcrição (Whisper)
+        print("\n[3/4] Acionando o Transcritor (Whisper Word-Level)...")
+        timestamps = extrair_timestamps(audio_path)
+        if not timestamps:
+            raise ValueError("A transcrição falhou ou não encontrou palavras.")
+            
+        # 4. Editor Visual (MoviePy)
+        print("\n[4/4] Acionando o Editor Visual (MoviePy)...")
+        video_final = montar_video_splitscreen(audio_path, timestamps)
+        
+        print("\n" + "="*50)
+        print(f"🎉 SUCESSO! O vídeo foi gerado perfeitamente: {video_final}")
+        print("="*50)
+        
+    except Exception as e:
+        print("\n" + "="*50)
+        print(f"❌ ERRO CRÍTICO NA ESTEIRA: {e}")
+        print("Interrompendo a execução de forma graciosa...")
+        print("="*50)
+        limpar_arquivos_temporarios()
+        
+if __name__ == "__main__":
+    iniciar_esteira()
