@@ -59,7 +59,9 @@ def iniciar_esteira():
         # 5. Publicador (YouTube Data API)
         print("\n[5/5] Acionando o Publicador (Upload no YouTube)...")
         response_yt = fazer_upload(video_final, metadados)
-        video_id = response_yt.get('id', 'ID_FALSO_DE_TESTE')
+        video_id = response_yt.get('id')
+        if not video_id:
+            raise ValueError("O upload falhou ou não retornou um ID de vídeo válido.")
         
         # 6. Gravação do Estado
         print("\n[Registrando no Banco de Dados]...")

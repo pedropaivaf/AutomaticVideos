@@ -52,15 +52,3 @@ def registrar_upload(tema: str, titulo: str, video_id: str):
         print(f"[ERRO CRÍTICO - Banco de Dados] Não foi possível salvar o estado no Supabase: {e}")
         return False
         
-if __name__ == "__main__":
-    # Teste de execução local com mocks
-    print("=== Teste Local - Módulo de Memória ===")
-    mock_tema = "A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia"
-    
-    print("Testando verificação de tema...")
-    existe = verificar_tema_existente(mock_tema)
-    print(f"O tema existe no banco? {existe}")
-    
-    print("\nTestando registro de upload...")
-    # registrar_upload(mock_tema, "Título Mock", "mock_video_123")
-    print("Teste concluído. (Descomente o comando de insert para realizar um registro de fato)")
