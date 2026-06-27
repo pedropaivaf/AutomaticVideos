@@ -1,12 +1,14 @@
 import os
 import sys
 import glob
-from src.roteirista import gerar_roteiro, gerar_metadados_youtube
+
+from src.roteirista import gerar_roteiro, gerar_roteiro_de_url, escolher_template, gerar_metadados_youtube
 from src.audio_engine import gerar_audio_dialogo
 from src.transcritor import extrair_timestamps
 from src.editor_visual import montar_video_splitscreen
 from src.publicador import fazer_upload
 from src.banco_dados import verificar_tema_existente, registrar_upload
+from src.extrator_url import raspar_landing_page
 
 def limpar_arquivos_temporarios():
     """Remove lixos de arquivos que podem ter ficado pela metade em caso de crash."""
@@ -18,43 +20,87 @@ def limpar_arquivos_temporarios():
         except Exception as e:
             print(f"Não foi possível remover o arquivo {temp_file}: {e}")
             
-def iniciar_esteira():
-    tema = "A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia"
+def iniciar_esteira(input_str: str):
+    """
+    Inicia a esteira de vídeos. Recebe um tema textual ou uma URL (Landing Page).
+    """
     print("="*50)
-    print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO 🚀")
-    print(f"Tema: {tema}")
+    print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO V3 🚀")
+    print(f"Input: {input_str}")
     print("="*50)
     
-    # 0. Verificação de Memória (Supabase)
-    print("\n[0/5] Checando Banco de Dados (Supabase)...")
-    if verificar_tema_existente(tema):
-        print("\033[91m[!] Tema já abordado no banco de dados. Encerrando operação para evitar redundância.\033[0m")
-        sys.exit(0)
+    is_url = input_str.startswith("http://") or input_str.startswith("https://")
     
     try:
-        # 1. Roteiro (LLM)
-        print("\n[1/5] Acionando o Roteirista (OpenAI/LLM)...")
-        json_roteiro = gerar_roteiro(tema, personagem1="Personagem1", personagem2="Personagem2", max_falas=6)
-        if not json_roteiro:
-            raise ValueError("O roteiro falhou ao ser gerado ou retornou vazio.")
+        if is_url:
+            print("\n[Fluxo URL-to-Short Ativado]")
             
-        # 2. Áudio (ElevenLabs + Pydub)
-        print("\n[2/5] Acionando o Diretor de Áudio (ElevenLabs + Pydub)...")
-        audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Personagem1", personagem2="Personagem2")
-        
+            # 0. Verificação de Memória (Supabase) baseada na URL
+            print("\n[0/5] Checando Banco de Dados (Supabase) para a URL...")
+            if verificar_tema_existente(input_str):
+                print("\033[91m[!] URL já processada no banco de dados. Encerrando operação para evitar redundância.\033[0m")
+                sys.exit(0)
+                
+            # 1. Extrator e Roteiro de URL
+            print("\n[1/5] Extraindo conteúdo da URL...")
+            texto_raspado = raspar_landing_page(input_str)
+            if not texto_raspado:
+                raise ValueError("A raspagem da URL falhou ou não retornou texto.")
+                
+            print("\n[1.5/5] Acionando o Roteirista (Copywriter de Resposta Direta)...")
+            json_roteiro = gerar_roteiro_de_url(texto_raspado)
+            if not json_roteiro:
+                raise ValueError("O roteiro de URL falhou ao ser gerado ou retornou vazio.")
+                
+            nome_template = "cinematic_broll"
+            
+            # 2. Áudio
+            print("\n[2/5] Acionando o Diretor de Áudio (ElevenLabs)...")
+            # Como o narrador da URL usa o nome "Narrador", usaremos esse nome na engine
+            audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Narrador", personagem2="None")
+            
+            # Para metadados
+            tema_ou_url = input_str
+            url_origem = input_str
+            
+        else:
+            print("\n[Fluxo Tema Dinâmico Ativado]")
+            
+            # 0. Verificação de Memória (Supabase)
+            print("\n[0/5] Checando Banco de Dados (Supabase)...")
+            if verificar_tema_existente(input_str):
+                print("\033[91m[!] Tema já abordado no banco de dados. Encerrando operação para evitar redundância.\033[0m")
+                sys.exit(0)
+                
+            # 1. Roteiro Padrão
+            print("\n[1/5] Acionando o Roteirista e escolhendo Template...")
+            nome_template = escolher_template(input_str)
+            print(f"-> A IA escolheu o template visual: {nome_template}")
+            
+            json_roteiro = gerar_roteiro(input_str, personagem1="Personagem1", personagem2="Personagem2", max_falas=6)
+            if not json_roteiro:
+                raise ValueError("O roteiro falhou ao ser gerado ou retornou vazio.")
+                
+            # 2. Áudio
+            print("\n[2/5] Acionando o Diretor de Áudio (ElevenLabs + Pydub)...")
+            audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Personagem1", personagem2="Personagem2")
+            
+            tema_ou_url = input_str
+            url_origem = None
+
         # 3. Transcrição (Whisper)
         print("\n[3/5] Acionando o Transcritor (Whisper Word-Level)...")
         timestamps = extrair_timestamps(audio_path)
         if not timestamps:
             raise ValueError("A transcrição falhou ou não encontrou palavras.")
             
-        # 4. Editor Visual (MoviePy) & Metadados
+        # 4. Editor Visual & Metadados
         print("\n[4/5] Gerando metadados de SEO para o YouTube...")
-        metadados = gerar_metadados_youtube(tema)
+        metadados = gerar_metadados_youtube(tema_ou_url, url_origem=url_origem)
         print(f"Título gerado: {metadados.get('titulo')}")
         
-        print("\n[4.5/5] Acionando o Editor Visual (MoviePy)...")
-        video_final = montar_video_splitscreen(audio_path, timestamps)
+        print(f"\n[4.5/5] Acionando o Editor Visual (Roteador -> {nome_template})...")
+        video_final = montar_video_splitscreen(audio_path, timestamps, json_roteiro=json_roteiro, nome_template=nome_template)
         
         # 5. Publicador (YouTube Data API)
         print("\n[5/5] Acionando o Publicador (Upload no YouTube)...")
@@ -65,7 +111,7 @@ def iniciar_esteira():
         
         # 6. Gravação do Estado
         print("\n[Registrando no Banco de Dados]...")
-        registrar_upload(tema, metadados.get('titulo', ''), video_id)
+        registrar_upload(tema_ou_url, metadados.get('titulo', ''), video_id)
         
         print("\n" + "="*50)
         print(f"🎉 SUCESSO ABSOLUTO! A esteira foi finalizada.")
@@ -81,4 +127,8 @@ def iniciar_esteira():
         limpar_arquivos_temporarios()
         
 if __name__ == "__main__":
-    iniciar_esteira()
+    # Teste de execução com tema
+    # iniciar_esteira("A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia")
+    
+    # Teste com URL
+    iniciar_esteira("https://exemplo.com/produto")

@@ -6,26 +6,21 @@ from openai import OpenAI
 # Carregar variáveis de ambiente
 load_dotenv()
 
+def obter_cliente() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or api_key == "sua_chave_aqui":
+        return None
+    return OpenAI(api_key=api_key)
+
 def gerar_roteiro(tema: str, personagem1: str = "Peter Griffin", personagem2: str = "Stewie", max_falas: int = 10) -> list:
     """
     Gera um roteiro de podcast em formato JSON entre dois personagens sobre um tema.
-    
-    Args:
-        tema (str): O assunto principal do podcast.
-        personagem1 (str): Nome do primeiro personagem.
-        personagem2 (str): Nome do segundo personagem.
-        max_falas (int): Quantidade aproximada de linhas de diálogo.
-        
-    Returns:
-        list: Lista de dicionários contendo o roteiro estruturado.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "sua_chave_aqui":
+    client = obter_cliente()
+    if not client:
         print("Erro: OPENAI_API_KEY não configurada no .env")
         return []
         
-    client = OpenAI(api_key=api_key)
-    
     prompt = f"""
 Escreva um roteiro de podcast estilo bate-papo dinâmico e de retenção extrema sobre o tema: "{tema}".
 Os participantes são {personagem1} e {personagem2}.
@@ -40,7 +35,6 @@ Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato exato de lis
 
 Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
 """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -50,19 +44,13 @@ Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
             ],
             response_format={ "type": "json_object" }
         )
-        
         content = response.choices[0].message.content
-        
-        # A OpenAI pode retornar o array encapsulado em um objeto se usarmos json_object, 
-        # então vamos tentar garantir que retornamos a lista corretamente.
         try:
             dados = json.loads(content)
-            # Se a API retornar um dicionário encapsulando a lista, tentamos extrair.
             if isinstance(dados, dict):
                 for key, value in dados.items():
                     if isinstance(value, list):
                         return value
-                # Se não encontrar lista, tenta adaptar
                 return [dados]
             elif isinstance(dados, list):
                 return dados
@@ -72,30 +60,138 @@ Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
         except json.JSONDecodeError as e:
             print(f"Erro ao decodificar JSON: {e}\nConteúdo bruto: {content}")
             return []
-            
     except Exception as e:
         print(f"Erro ao chamar a API da OpenAI: {e}")
         return []
 
-def gerar_metadados_youtube(tema: str) -> dict:
+def gerar_roteiro_de_url(texto_raspado: str) -> list:
+    """
+    Age como um Copywriter de Resposta Direta.
+    Lê o texto da página e gera um roteiro de 30-40 segundos: Gancho Agressivo -> Agitação -> Solução.
+    """
+    client = obter_cliente()
+    if not client:
+        print("Erro: OPENAI_API_KEY não configurada no .env")
+        return []
+        
+    prompt = f"""
+Atue como um Copywriter de Resposta Direta focado em retenção para TikTok/Shorts.
+Leia o seguinte texto extraído de uma Landing Page:
+---
+{texto_raspado}
+---
+
+Baseado nisso, crie um roteiro narrado por UMA pessoa (um narrador) de no máximo 40 segundos.
+A estrutura OBRIGATÓRIA é:
+1. Gancho Agressivo (Tocar na Dor central)
+2. Agitação (Piorar a dor / Mostrar consequência)
+3. Solução (Apresentar o produto/oferta da página como a única saída)
+
+Como a nossa esteira de áudio atual espera o formato de diálogo, vamos colocar o 'Narrador' como personagem.
+Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato exato de lista de objetos:
+[
+  {{"personagem": "Narrador", "texto": "Sua fala de gancho agressivo aqui..."}},
+  {{"personagem": "Narrador", "texto": "Sua fala de agitação aqui..."}},
+  {{"personagem": "Narrador", "texto": "Sua fala de solução aqui..."}}
+]
+
+Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Você é um Copywriter brutal para Shorts/TikTok. Você apenas responde com JSON válido."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        content = response.choices[0].message.content
+        try:
+            dados = json.loads(content)
+            if isinstance(dados, dict):
+                for key, value in dados.items():
+                    if isinstance(value, list):
+                        return value
+                return [dados]
+            elif isinstance(dados, list):
+                return dados
+            else:
+                return []
+        except json.JSONDecodeError:
+            return []
+    except Exception as e:
+        print(f"Erro ao chamar a API da OpenAI: {e}")
+        return []
+
+def escolher_template(tema: str) -> str:
+    """
+    Usa IA (ou fallback aleatório) para escolher se o vídeo será 'podcast_split' ou 'cinematic_broll'.
+    """
+    client = obter_cliente()
+    if not client:
+        import random
+        return random.choice(["podcast_split", "cinematic_broll"])
+        
+    prompt = f"""
+Analise o tema abaixo e decida qual formato visual de vídeo combina mais:
+Tema: "{tema}"
+
+Opções:
+- "podcast_split": Para temas que lembram conversa, curiosidades, fofoca, debates, histórias engraçadas.
+- "cinematic_broll": Para temas que lembram negócios, motivação, mindset, dinheiro, automação, reflexão séria.
+
+Responda OBRIGATORIAMENTE um JSON:
+{{"template": "nome_do_template"}}
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={ "type": "json_object" }
+        )
+        dados = json.loads(response.choices[0].message.content)
+        template = dados.get("template", "podcast_split")
+        if template not in ["podcast_split", "cinematic_broll"]:
+            template = "podcast_split"
+        return template
+    except Exception:
+        import random
+        return random.choice(["podcast_split", "cinematic_broll"])
+
+def gerar_metadados_youtube(tema: str, url_origem: str = None) -> dict:
     """
     Gera título, descrição e tags para o vídeo do YouTube usando a API da OpenAI.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "sua_chave_aqui":
+    client = obter_cliente()
+    if not client:
         print("Erro: OPENAI_API_KEY não configurada. Metadados fallback usados.")
         return {
             "titulo": f"Shorts incrível sobre {tema}"[:60],
-            "descricao": f"Um podcast gerado por IA sobre {tema}. #shorts",
-            "tags": ["ia", "shorts", "podcast", "viral", "curiosidades"]
+            "descricao": f"Um vídeo gerado por IA sobre {tema}.\n\nSaiba mais: {url_origem if url_origem else ''}\n\n#shorts",
+            "tags": ["ia", "shorts", "viral", "curiosidades"]
         }
         
-    client = OpenAI(api_key=api_key)
-    
     link_aura = os.getenv("LINK_AURA", "https://seu-link-aura.com")
     link_negocios = os.getenv("LINK_NEGOCIOS", "https://seu-link-negocios.com")
     
-    prompt = f"""
+    if url_origem:
+        prompt_cta = f"""
+Você está criando metadados para um vídeo que resume uma Landing Page (URL: {url_origem}).
+O tema ou texto base extraído foi da página acima.
+
+Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato:
+{{
+  "titulo": "Título magnético e viciante (máx 60 caracteres)",
+  "descricao": "🚀 Acesse agora a oferta oficial: {url_origem}\\n\\n[Resumo persuasivo do vídeo...]\\n\\n#shorts",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
+}}
+A primeira linha da 'descricao' DEVE obrigatoriamente ser exatamente a string do CTA com a URL, conforme o exemplo.
+As tags devem ser um array de 5 a 8 strings altamente relevantes.
+Não inclua formatação Markdown (como ```json).
+"""
+    else:
+        prompt_cta = f"""
 Crie metadados otimizados para YouTube Shorts sobre o tema: "{tema}".
 Atue como um Copywriter de conversão de elite.
 Primeiro, classifique o tema em uma das duas categorias abaixo para escolher o CTA:
@@ -116,12 +212,13 @@ A chave 'descricao' DEVE obrigatoriamente começar com a string exata do CTA da 
 As tags devem ser um array de 5 a 8 strings altamente relevantes.
 Não inclua formatação Markdown (como ```json).
 """
+
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Você é um especialista em SEO para YouTube Shorts. Responda apenas com JSON válido."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt_cta}
             ],
             response_format={ "type": "json_object" }
         )
@@ -137,14 +234,6 @@ Não inclua formatação Markdown (como ```json).
         print(f"Erro ao gerar metadados: {e}")
         return {
             "titulo": f"Shorts incrível sobre {tema}"[:60],
-            "descricao": f"Um podcast gerado por IA sobre {tema}. #shorts",
-            "tags": ["ia", "shorts", "podcast", "viral", "curiosidades"]
+            "descricao": f"Um vídeo gerado por IA sobre {tema}.\n\nSaiba mais: {url_origem if url_origem else link_aura}\n\n#shorts",
+            "tags": ["ia", "shorts", "viral", "curiosidades"]
         }
-
-
-if __name__ == "__main__":
-    # Teste de execução isolada do Módulo 1
-    tema_teste = "A teoria da simulação e finanças"
-    roteiro = gerar_roteiro(tema_teste, "Personagem1", "Personagem2", 4)
-    print("Resultado do Roteirista (JSON):")
-    print(json.dumps(roteiro, indent=2, ensure_ascii=False))
