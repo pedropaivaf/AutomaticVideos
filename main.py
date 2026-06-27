@@ -127,8 +127,36 @@ def iniciar_esteira(input_str: str):
         limpar_arquivos_temporarios()
         
 if __name__ == "__main__":
-    # Teste de execução com tema
-    # iniciar_esteira("A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia")
+    import random
     
-    # Teste com URL
-    iniciar_esteira("https://exemplo.com/produto")
+    # Lista de tópicos fallback para quando a tarefa rodar 100% autônoma (via Task Scheduler)
+    topicos_autonomos = [
+        "A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia",
+        "Por que o foco extremo é a única habilidade que te salva da mediocridade",
+        "A verdade sobre automação de negócios e renda passiva na nova economia",
+        "Biohacking: como 1 hora de sono a mais gera 10 mil reais a mais na sua conta",
+        "Como a IA está extinguindo o trabalhador mediano em tempo real"
+    ]
+    
+    if len(sys.argv) > 1:
+        # Se passado como argumento na linha de comando
+        input_str = sys.argv[1]
+    elif sys.stdout.isatty():
+        # Se rodando interativamente no terminal
+        try:
+            print("\n" + "="*50)
+            print("Opção A: Rota Viral (Digite um tema amplo e agressivo)")
+            print("Opção B: Máquina de Vendas (Cole uma URL de Landing Page)")
+            print("="*50)
+            input_str = input("Digite o tema ou URL (deixe em branco para aleatório): ").strip()
+            if not input_str:
+                input_str = random.choice(topicos_autonomos)
+                print(f"Nenhum input detectado. Usando tópico aleatório: {input_str}")
+        except EOFError:
+            # Em caso de terminais que não suportam input interativo
+            input_str = random.choice(topicos_autonomos)
+    else:
+        # Se rodando em background (Task Scheduler)
+        input_str = random.choice(topicos_autonomos)
+        
+    iniciar_esteira(input_str)
