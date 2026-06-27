@@ -1,9 +1,10 @@
 import os
 import glob
-from src.roteirista import gerar_roteiro
+from src.roteirista import gerar_roteiro, gerar_metadados_youtube
 from src.audio_engine import gerar_audio_dialogo
 from src.transcritor import extrair_timestamps
 from src.editor_visual import montar_video_splitscreen
+from src.publicador import fazer_upload
 
 def limpar_arquivos_temporarios():
     """Remove lixos de arquivos que podem ter ficado pela metade em caso de crash."""
@@ -25,27 +26,37 @@ def iniciar_esteira():
     
     try:
         # 1. Roteiro (LLM)
-        print("\n[1/4] Acionando o Roteirista (OpenAI/LLM)...")
+        print("\n[1/5] Acionando o Roteirista (OpenAI/LLM)...")
         json_roteiro = gerar_roteiro(tema, personagem1="Personagem1", personagem2="Personagem2", max_falas=6)
         if not json_roteiro:
             raise ValueError("O roteiro falhou ao ser gerado ou retornou vazio.")
             
         # 2. Áudio (ElevenLabs + Pydub)
-        print("\n[2/4] Acionando o Diretor de Áudio (ElevenLabs + Pydub)...")
+        print("\n[2/5] Acionando o Diretor de Áudio (ElevenLabs + Pydub)...")
         audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Personagem1", personagem2="Personagem2")
         
         # 3. Transcrição (Whisper)
-        print("\n[3/4] Acionando o Transcritor (Whisper Word-Level)...")
+        print("\n[3/5] Acionando o Transcritor (Whisper Word-Level)...")
         timestamps = extrair_timestamps(audio_path)
         if not timestamps:
             raise ValueError("A transcrição falhou ou não encontrou palavras.")
             
-        # 4. Editor Visual (MoviePy)
-        print("\n[4/4] Acionando o Editor Visual (MoviePy)...")
+        # 4. Editor Visual (MoviePy) & Metadados
+        print("\n[4/5] Gerando metadados de SEO para o YouTube...")
+        metadados = gerar_metadados_youtube(tema)
+        print(f"Título gerado: {metadados.get('titulo')}")
+        
+        print("\n[4.5/5] Acionando o Editor Visual (MoviePy)...")
         video_final = montar_video_splitscreen(audio_path, timestamps)
         
+        # 5. Publicador (YouTube Data API)
+        print("\n[5/5] Acionando o Publicador (Upload no YouTube)...")
+        response_yt = fazer_upload(video_final, metadados)
+        
         print("\n" + "="*50)
-        print(f"🎉 SUCESSO! O vídeo foi gerado perfeitamente: {video_final}")
+        print(f"🎉 SUCESSO ABSOLUTO! A esteira foi finalizada.")
+        print(f"O vídeo foi renderizado em: {video_final}")
+        print(f"Link do Shorts Privado: https://youtu.be/{response_yt.get('id')}")
         print("="*50)
         
     except Exception as e:

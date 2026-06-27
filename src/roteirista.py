@@ -77,6 +77,58 @@ Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
         print(f"Erro ao chamar a API da OpenAI: {e}")
         return []
 
+def gerar_metadados_youtube(tema: str) -> dict:
+    """
+    Gera título, descrição e tags para o vídeo do YouTube usando a API da OpenAI.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or api_key == "sua_chave_aqui":
+        print("Erro: OPENAI_API_KEY não configurada. Metadados fallback usados.")
+        return {
+            "titulo": f"Shorts incrível sobre {tema}"[:60],
+            "descricao": f"Um podcast gerado por IA sobre {tema}. #shorts",
+            "tags": ["ia", "shorts", "podcast", "viral", "curiosidades"]
+        }
+        
+    client = OpenAI(api_key=api_key)
+    
+    prompt = f"""
+Crie metadados otimizados para YouTube Shorts sobre o tema: "{tema}".
+Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato:
+{{
+  "titulo": "Título magnético e viciante (máx 60 caracteres)",
+  "descricao": "Descrição persuasiva, terminando com a hashtag #shorts",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
+}}
+As tags devem ser um array de 5 a 8 strings altamente relevantes.
+Não inclua formatação Markdown (como ```json).
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Você é um especialista em SEO para YouTube Shorts. Responda apenas com JSON válido."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        content = response.choices[0].message.content
+        dados = json.loads(content)
+        
+        # Garante que a descrição termine com #shorts
+        if "#shorts" not in dados.get("descricao", "").lower():
+            dados["descricao"] = dados.get("descricao", "") + "\n\n#shorts"
+            
+        return dados
+    except Exception as e:
+        print(f"Erro ao gerar metadados: {e}")
+        return {
+            "titulo": f"Shorts incrível sobre {tema}"[:60],
+            "descricao": f"Um podcast gerado por IA sobre {tema}. #shorts",
+            "tags": ["ia", "shorts", "podcast", "viral", "curiosidades"]
+        }
+
+
 if __name__ == "__main__":
     # Teste de execução isolada do Módulo 1
     tema_teste = "A teoria da simulação e finanças"
