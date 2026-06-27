@@ -15,8 +15,8 @@ load_dotenv()
 # Forçar o PATH para incluir o ffmpeg/ffprobe instalado via winget
 os.environ["PATH"] += os.pathsep + r"C:\Users\Pedro\AppData\Local\Microsoft\WinGet\Links"
 
-# Setup de Vozes (Placeholders para ElevenLabs)
-VOICE_ID_P1 = "pNInz6obbfDQGcgMyIGb" # Ex: Adam (Padrão)
+# Setup de Vozes (ElevenLabs Premium)
+VOICE_ID_P1 = "CwhRBWXzGAHq8TQ4Fs17" # Ex: Roger (Foco em Retenção)
 VOICE_ID_P2 = "ErXwobaYiN019PkySvjV" # Ex: Antoni (Padrão)
 
 async def gerar_audio_edge_tts(texto: str, voice: str, output_path: str):
