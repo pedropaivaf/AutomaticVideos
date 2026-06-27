@@ -92,14 +92,27 @@ def gerar_metadados_youtube(tema: str) -> dict:
         
     client = OpenAI(api_key=api_key)
     
+    link_aura = os.getenv("LINK_AURA", "https://seu-link-aura.com")
+    link_negocios = os.getenv("LINK_NEGOCIOS", "https://seu-link-negocios.com")
+    
     prompt = f"""
 Crie metadados otimizados para YouTube Shorts sobre o tema: "{tema}".
+Atue como um Copywriter de conversão de elite.
+Primeiro, classifique o tema em uma das duas categorias abaixo para escolher o CTA:
+
+Categoria A (Mindset, Biohacking, Foco, Procrastinação):
+CTA: "🧠 Destrua a mediocridade e ative seu Foco Extremo. Acesse o AURA e domine o Deep Work: {link_aura}"
+
+Categoria B (Dinheiro, Automação, Fuga da Matrix, Negócios de Alta Renda):
+CTA: "⚙️ Pare de trocar tempo por dinheiro. Tenha seu próprio negócio automatizado hoje rodando no automático: {link_negocios}"
+
 Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato:
 {{
   "titulo": "Título magnético e viciante (máx 60 caracteres)",
-  "descricao": "Descrição persuasiva, terminando com a hashtag #shorts",
+  "descricao": "[INSERIR_O_CTA_ESCOLHIDO_AQUI]\\n\\n[Resumo persuasivo do vídeo...]\\n\\n#shorts",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
 }}
+A chave 'descricao' DEVE obrigatoriamente começar com a string exata do CTA da categoria correspondente na PRIMEIRA linha.
 As tags devem ser um array de 5 a 8 strings altamente relevantes.
 Não inclua formatação Markdown (como ```json).
 """
