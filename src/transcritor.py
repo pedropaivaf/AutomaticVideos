@@ -1,17 +1,10 @@
 import os
 import json
-from dotenv import load_dotenv
-from openai import OpenAI, APIError
-
-# Carregar variáveis de ambiente
-load_dotenv()
-
-# Setup do cliente OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+import whisper
 
 def extrair_timestamps(audio_path: str) -> list:
     """
-    Extrai as palavras e os tempos de um áudio utilizando a API Whisper da OpenAI.
+    Extrai as palavras e os tempos de um áudio utilizando o modelo Whisper local (base).
     
     Args:
         audio_path (str): Caminho para o arquivo de áudio (.mp3)
@@ -24,50 +17,35 @@ def extrair_timestamps(audio_path: str) -> list:
         return []
 
     try:
-        print(f"Lendo arquivo de áudio: {audio_path}")
-        with open(audio_path, "rb") as audio_file:
-            print("Enviando áudio para a API Whisper da OpenAI...")
-            
-            # Chamada Mágica (Word-Level)
-            response = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="verbose_json",
-                timestamp_granularities=["word"]
-            )
-            
-            palavras_formatadas = []
-            
-            # Compatibilidade de extração (a resposta é um objeto dict-like ou Pydantic object dependendo da versão)
-            words_data = getattr(response, 'words', [])
-            if not words_data and isinstance(response, dict):
-                words_data = response.get('words', [])
+        print(f"Lendo arquivo de áudio e carregando modelo Whisper local (base): {audio_path}")
+        # Carrega o modelo whisper. Na primeira vez, ele fará o download do modelo base (~140MB).
+        model = whisper.load_model("base")
+        
+        print("Transcrevendo áudio com word_timestamps=True...")
+        result = model.transcribe(audio_path, word_timestamps=True)
+        
+        palavras_formatadas = []
+        
+        segments = result.get("segments", [])
+        for segment in segments:
+            words = segment.get("words", [])
+            for w in words:
+                palavra = w.get("word", "").strip()
+                inicio = w.get("start", 0.0)
+                fim = w.get("end", 0.0)
                 
-            for word_obj in words_data:
-                # O formato do objeto word pode ser dict ou ter atributos
-                if isinstance(word_obj, dict):
-                    palavra = word_obj.get("word", "").strip()
-                    inicio = word_obj.get("start", 0.0)
-                    fim = word_obj.get("end", 0.0)
-                else:
-                    palavra = getattr(word_obj, "word", "").strip()
-                    inicio = getattr(word_obj, "start", 0.0)
-                    fim = getattr(word_obj, "end", 0.0)
+                if palavra:
+                    palavras_formatadas.append({
+                        "palavra": palavra,
+                        "inicio": round(inicio, 2),
+                        "fim": round(fim, 2)
+                    })
                     
-                palavras_formatadas.append({
-                    "palavra": palavra,
-                    "inicio": round(inicio, 2),
-                    "fim": round(fim, 2)
-                })
-                
-            print(f"Transcrição concluída com sucesso! Total de palavras capturadas: {len(palavras_formatadas)}")
-            return palavras_formatadas
-            
-    except APIError as e:
-        print(f"[ERRO CRÍTICO] Falha na API da OpenAI (Whisper): {e}")
-        raise e
+        print(f"Transcrição concluída com sucesso! Total de palavras capturadas: {len(palavras_formatadas)}")
+        return palavras_formatadas
+        
     except Exception as e:
-        print(f"[ERRO INESPERADO] Falha durante a extração de timestamps: {e}")
+        print(f"[ERRO INESPERADO] Falha durante a extração de timestamps com Whisper local: {e}")
         raise e
 
 if __name__ == '__main__':
