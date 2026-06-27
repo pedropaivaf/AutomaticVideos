@@ -7,10 +7,7 @@ from openai import OpenAI
 load_dotenv()
 
 def obter_cliente() -> OpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "sua_chave_aqui":
-        return None
-    return OpenAI(api_key=api_key)
+    return OpenAI(base_url='http://localhost:11434/v1', api_key='ollama')
 
 def gerar_roteiro(tema: str, personagem1: str = "Peter Griffin", personagem2: str = "Stewie", max_falas: int = 10) -> list:
     """
@@ -37,12 +34,13 @@ Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama3.1",
             messages=[
                 {"role": "system", "content": "Você é um roteirista genial especialista em retenção para Shorts/TikTok. Você apenas responde com JSON válido."},
                 {"role": "user", "content": prompt}
             ],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            max_tokens=4096
         )
         content = response.choices[0].message.content
         try:
@@ -99,12 +97,13 @@ Não inclua formatação Markdown (como ```json) ou texto extra fora do JSON.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama3.1",
             messages=[
                 {"role": "system", "content": "Você é um Copywriter brutal para Shorts/TikTok. Você apenas responde com JSON válido."},
                 {"role": "user", "content": prompt}
             ],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            max_tokens=4096
         )
         content = response.choices[0].message.content
         try:
@@ -146,9 +145,10 @@ Responda OBRIGATORIAMENTE um JSON:
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama3.1",
             messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            max_tokens=4096
         )
         dados = json.loads(response.choices[0].message.content)
         template = dados.get("template", "podcast_split")
@@ -215,12 +215,13 @@ Não inclua formatação Markdown (como ```json).
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama3.1",
             messages=[
                 {"role": "system", "content": "Você é um especialista em SEO para YouTube Shorts. Responda apenas com JSON válido."},
                 {"role": "user", "content": prompt_cta}
             ],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            max_tokens=4096
         )
         content = response.choices[0].message.content
         dados = json.loads(content)
