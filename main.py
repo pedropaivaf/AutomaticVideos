@@ -1,15 +1,16 @@
 import os
+import sys
 import glob
 from src.roteirista import gerar_roteiro, gerar_metadados_youtube
 from src.audio_engine import gerar_audio_dialogo
 from src.transcritor import extrair_timestamps
 from src.editor_visual import montar_video_splitscreen
 from src.publicador import fazer_upload
+from src.banco_dados import verificar_tema_existente, registrar_upload
 
 def limpar_arquivos_temporarios():
     """Remove lixos de arquivos que podem ter ficado pela metade em caso de crash."""
     print("Executando limpeza de emergência...")
-    # Limpa mp3 temporários na raiz (do audio_engine)
     for temp_file in glob.glob("temp_*.mp3"):
         try:
             if os.path.exists(temp_file):
@@ -23,6 +24,12 @@ def iniciar_esteira():
     print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO 🚀")
     print(f"Tema: {tema}")
     print("="*50)
+    
+    # 0. Verificação de Memória (Supabase)
+    print("\n[0/5] Checando Banco de Dados (Supabase)...")
+    if verificar_tema_existente(tema):
+        print("\033[91m[!] Tema já abordado no banco de dados. Encerrando operação para evitar redundância.\033[0m")
+        sys.exit(0)
     
     try:
         # 1. Roteiro (LLM)
@@ -52,11 +59,16 @@ def iniciar_esteira():
         # 5. Publicador (YouTube Data API)
         print("\n[5/5] Acionando o Publicador (Upload no YouTube)...")
         response_yt = fazer_upload(video_final, metadados)
+        video_id = response_yt.get('id', 'ID_FALSO_DE_TESTE')
+        
+        # 6. Gravação do Estado
+        print("\n[Registrando no Banco de Dados]...")
+        registrar_upload(tema, metadados.get('titulo', ''), video_id)
         
         print("\n" + "="*50)
         print(f"🎉 SUCESSO ABSOLUTO! A esteira foi finalizada.")
         print(f"O vídeo foi renderizado em: {video_final}")
-        print(f"Link do Shorts Privado: https://youtu.be/{response_yt.get('id')}")
+        print(f"Link do Shorts Privado: https://youtu.be/{video_id}")
         print("="*50)
         
     except Exception as e:
