@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-def raspar_landing_page(url: str) -> str:
+def raspar_landing_page(url: str) -> dict:
     """
     Acessa a URL fornecida e extrai o texto de tags relevantes (h1, h2, h3, p) 
     para alimentar o Copywriter LLM.
@@ -18,6 +18,18 @@ def raspar_landing_page(url: str) -> str:
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
+        cor_predominante = "yellow"
+        # Tenta extrair alguma cor de botões para usar de base
+        botoes = soup.find_all(['button', 'a'])
+        for btn in botoes:
+            style = btn.get('style', '')
+            if 'background-color' in style or 'background' in style:
+                if 'blue' in style.lower(): cor_predominante = "blue"
+                elif 'green' in style.lower(): cor_predominante = "green"
+                elif 'red' in style.lower(): cor_predominante = "red"
+                elif 'black' in style.lower(): cor_predominante = "black"
+                elif 'white' in style.lower(): cor_predominante = "white"
+                
         # Remove elementos indesejados
         for element in soup(['script', 'style', 'nav', 'footer', 'noscript']):
             element.decompose()
@@ -36,11 +48,11 @@ def raspar_landing_page(url: str) -> str:
         if len(texto_limpo) > 3000:
             texto_limpo = texto_limpo[:3000] + "..."
             
-        print(f"Raspagem concluída. Foram extraídos {len(texto_limpo)} caracteres.")
-        return texto_limpo
+        print(f"Raspagem concluída. Foram extraídos {len(texto_limpo)} caracteres. Cor predominante: {cor_predominante}")
+        return {"texto": texto_limpo, "cor_predominante": cor_predominante}
     except Exception as e:
         print(f"Erro ao raspar a página '{url}': {e}")
-        return ""
+        return {"texto": "", "cor_predominante": "yellow"}
 
 if __name__ == "__main__":
     # Teste

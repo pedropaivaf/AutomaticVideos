@@ -9,7 +9,7 @@ load_dotenv()
 def obter_cliente() -> OpenAI:
     return OpenAI(base_url='http://localhost:11434/v1', api_key='ollama')
 
-def gerar_roteiro(tema: str, personagem1: str = "Peter Griffin", personagem2: str = "Stewie", max_falas: int = 10) -> list:
+def gerar_roteiro(tema: str, personagem1: str = "Peter Griffin", personagem2: str = "Stewie", max_falas: int = 10, duracao: str = "curta") -> list:
     """
     Gera um roteiro de podcast em formato JSON entre dois personagens sobre um tema.
     """
@@ -18,11 +18,17 @@ def gerar_roteiro(tema: str, personagem1: str = "Peter Griffin", personagem2: st
         print("Erro: OPENAI_API_KEY não configurada no .env")
         return []
         
+    if duracao == "longa":
+        instrucao_tamanho = "O roteiro deve ser denso e profundo, com cerca de 130-150 palavras no total, com mais agitação da dor e retenção no meio."
+    else:
+        instrucao_tamanho = "O roteiro deve ser muito curto e rápido, com no máximo 60-70 palavras no total."
+
     prompt = f"""
 Escreva um roteiro de podcast estilo bate-papo dinâmico e de retenção extrema sobre o tema: "{tema}".
 Os participantes são {personagem1} e {personagem2}.
 Crie aproximadamente {max_falas} falas no total, alternando entre eles.
-As falas devem ser curtas, diretas, com humor e opiniões fortes (estilo TikTok/Shorts).
+{instrucao_tamanho}
+As falas devem ser diretas, com humor e opiniões fortes (estilo TikTok/Shorts).
 
 Você deve retornar OBRIGATORIAMENTE um JSON com o seguinte formato exato de lista de objetos:
 [

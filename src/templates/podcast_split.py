@@ -84,7 +84,7 @@ def gerar_legendas(timestamps: list) -> list:
         
     return legendas
 
-def render(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None) -> str:
+def render(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None, **kwargs) -> str:
     if output_path is None:
         output_dir = os.path.join("assets", "outputs")
         os.makedirs(output_dir, exist_ok=True)

@@ -12,16 +12,20 @@ import PIL.Image
 if not hasattr(PIL.Image, 'ANTIALIAS'):
     PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
 
-def carregar_broll_full(duracao_audio: float) -> VideoFileClip:
+def carregar_broll_full(duracao_audio: float, tema_broll: str = "cinematic") -> VideoFileClip:
     """Carrega b-roll, faz crop para 1080x1920 (tela cheia) e corta tempo."""
-    broll_dir = os.path.join("assets", "broll")
+    broll_dir = os.path.join("assets", "broll", tema_broll)
     if not os.path.exists(broll_dir):
         os.makedirs(broll_dir, exist_ok=True)
     arquivos = [f for f in os.listdir(broll_dir) if f.endswith(('.mp4', '.mov', '.avi'))]
     
     if not arquivos:
-        print("[AVISO] Nenhum vídeo encontrado em assets/broll/. Um erro será gerado se não houver arquivo.")
-        raise FileNotFoundError("Adicione um vídeo de gameplay/cinematic em assets/broll/ para renderizar.")
+        # Fallback to general broll folder if empty
+        broll_dir = os.path.join("assets", "broll")
+        arquivos = [f for f in os.listdir(broll_dir) if f.endswith(('.mp4', '.mov', '.avi'))]
+        if not arquivos:
+            print("[AVISO] Nenhum vídeo encontrado em assets/broll/. Um erro será gerado se não houver arquivo.")
+            raise FileNotFoundError("Adicione um vídeo de gameplay/cinematic em assets/broll/ para renderizar.")
         
     broll_path = os.path.join(broll_dir, random.choice(arquivos))
     clip = VideoFileClip(broll_path)
@@ -43,7 +47,7 @@ def carregar_broll_full(duracao_audio: float) -> VideoFileClip:
     
     return clip
 
-def gerar_legendas(timestamps: list) -> list:
+def gerar_legendas(timestamps: list, cor_legenda: str = 'yellow') -> list:
     legendas = []
     for item in timestamps:
         palavra = item.get("palavra")
@@ -53,19 +57,19 @@ def gerar_legendas(timestamps: list) -> list:
         try:
             txt_clip = TextClip(
                 palavra,
-                fontsize=90,
-                color='yellow',
-                font='Impact',
+                fontsize=110,
+                color=cor_legenda,
+                font='Arial-Black',
                 stroke_color='black',
-                stroke_width=5
+                stroke_width=3
             )
         except Exception:
             txt_clip = TextClip(
                 palavra,
-                fontsize=90,
-                color='yellow',
+                fontsize=110,
+                color=cor_legenda,
                 stroke_color='black',
-                stroke_width=5
+                stroke_width=3
             )
             
         txt_clip = txt_clip.set_start(inicio).set_end(fim)
@@ -74,7 +78,7 @@ def gerar_legendas(timestamps: list) -> list:
         
     return legendas
 
-def render(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None) -> str:
+def render(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None, tema_broll: str = "cinematic", cor_legenda: str = "yellow", is_landing_page: bool = False) -> str:
     if output_path is None:
         output_dir = os.path.join("assets", "outputs")
         os.makedirs(output_dir, exist_ok=True)
@@ -83,12 +87,13 @@ def render(audio_path: str, timestamps: list, json_roteiro: list = None, output_
     audio_clip = AudioFileClip(audio_path)
     duracao_audio = audio_clip.duration
     
-    broll_clip = carregar_broll_full(duracao_audio)
+    broll_clip = carregar_broll_full(duracao_audio, tema_broll)
     
-    # Overlay escuro para destacar texto (-20% / 0.2 opacity)
-    overlay_escuro = ColorClip(size=(1080, 1920), color=(0, 0, 0)).set_opacity(0.3).set_duration(duracao_audio).set_position((0, 0))
+    # Overlay escuro para destacar texto (-30% / 0.3 opacity for Landing Pages, else 0.15)
+    opacity = 0.3 if is_landing_page else 0.15
+    overlay_escuro = ColorClip(size=(1080, 1920), color=(0, 0, 0)).set_opacity(opacity).set_duration(duracao_audio).set_position((0, 0))
     
-    clips_legendas = gerar_legendas(timestamps)
+    clips_legendas = gerar_legendas(timestamps, cor_legenda)
     
     camadas = [broll_clip, overlay_escuro] + clips_legendas
     video_final = CompositeVideoClip(camadas, size=(1080, 1920))

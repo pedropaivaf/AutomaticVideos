@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import random
 
 from src.roteirista import gerar_roteiro, gerar_roteiro_de_url, escolher_template, gerar_metadados_youtube
 from src.audio_engine import gerar_audio_dialogo
@@ -9,6 +10,7 @@ from src.editor_visual import montar_video_splitscreen
 from src.publicador import fazer_upload
 from src.banco_dados import verificar_tema_existente, registrar_upload
 from src.extrator_url import raspar_landing_page
+from src.trend_hunter import buscar_assunto_viral_do_dia
 
 def limpar_arquivos_temporarios():
     """Remove lixos de arquivos que podem ter ficado pela metade em caso de crash."""
@@ -20,20 +22,20 @@ def limpar_arquivos_temporarios():
         except Exception as e:
             print(f"Não foi possível remover o arquivo {temp_file}: {e}")
             
-def iniciar_esteira(input_str: str):
+def iniciar_esteira(input_str: str, rota: int = 3, duracao: str = "curta"):
     """
-    Inicia a esteira de vídeos. Recebe um tema textual ou uma URL (Landing Page).
+    Inicia a esteira de vídeos. Recebe um tema textual ou uma URL.
     """
     print("="*50)
-    print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO V3 🚀")
-    print(f"Input: {input_str}")
+    print("🚀 INICIANDO ESTEIRA DO GERADOR DE SHORTS AUTÔNOMO V4 🚀")
+    print(f"Rota Ativa: {rota} | Input: {input_str}")
     print("="*50)
     
-    is_url = input_str.startswith("http://") or input_str.startswith("https://")
+    is_url = (rota == 2)
     
     try:
         if is_url:
-            print("\n[Fluxo URL-to-Short Ativado]")
+            print("\n[Fluxo URL-to-Video Ativado]")
             
             # 0. Verificação de Memória (Supabase) baseada na URL
             print("\n[0/5] Checando Banco de Dados (Supabase) para a URL...")
@@ -43,7 +45,10 @@ def iniciar_esteira(input_str: str):
                 
             # 1. Extrator e Roteiro de URL
             print("\n[1/5] Extraindo conteúdo da URL...")
-            texto_raspado = raspar_landing_page(input_str)
+            dados_pagina = raspar_landing_page(input_str)
+            texto_raspado = dados_pagina.get("texto")
+            cor_legenda = dados_pagina.get("cor_predominante", "yellow")
+            
             if not texto_raspado:
                 raise ValueError("A raspagem da URL falhou ou não retornou texto.")
                 
@@ -53,13 +58,13 @@ def iniciar_esteira(input_str: str):
                 raise ValueError("O roteiro de URL falhou ao ser gerado ou retornou vazio.")
                 
             nome_template = "cinematic_broll"
+            tema_broll = "business"
+            is_landing_page = True
             
             # 2. Áudio
             print("\n[2/5] Acionando o Diretor de Áudio (ElevenLabs)...")
-            # Como o narrador da URL usa o nome "Narrador", usaremos esse nome na engine
             audio_path = gerar_audio_dialogo(json_roteiro, personagem1="Narrador", personagem2="None")
             
-            # Para metadados
             tema_ou_url = input_str
             url_origem = input_str
             
@@ -74,10 +79,19 @@ def iniciar_esteira(input_str: str):
                 
             # 1. Roteiro Padrão
             print("\n[1/5] Acionando o Roteirista e escolhendo Template...")
-            nome_template = escolher_template(input_str)
-            print(f"-> A IA escolheu o template visual: {nome_template}")
+            if rota == 1:
+                nome_template = "cinematic_broll"
+                tema_broll = random.choice(["minecraft", "cinematic"])
+            else:
+                nome_template = escolher_template(input_str)
+                tema_broll = "cinematic" if nome_template == "cinematic_broll" else "minecraft"
+                
+            cor_legenda = "yellow"
+            is_landing_page = False
             
-            json_roteiro = gerar_roteiro(input_str, personagem1="Personagem1", personagem2="Personagem2", max_falas=6)
+            print(f"-> A IA escolheu o template visual: {nome_template} com B-Roll de {tema_broll}")
+            
+            json_roteiro = gerar_roteiro(input_str, personagem1="Personagem1", personagem2="Personagem2", max_falas=6, duracao=duracao)
             if not json_roteiro:
                 raise ValueError("O roteiro falhou ao ser gerado ou retornou vazio.")
                 
@@ -100,7 +114,10 @@ def iniciar_esteira(input_str: str):
         print(f"Título gerado: {metadados.get('titulo')}")
         
         print(f"\n[4.5/5] Acionando o Editor Visual (Roteador -> {nome_template})...")
-        video_final = montar_video_splitscreen(audio_path, timestamps, json_roteiro=json_roteiro, nome_template=nome_template)
+        video_final = montar_video_splitscreen(
+            audio_path, timestamps, json_roteiro=json_roteiro, nome_template=nome_template,
+            tema_broll=tema_broll, cor_legenda=cor_legenda, is_landing_page=is_landing_page
+        )
         
         # 5. Publicador (YouTube Data API)
         print("\n[5/5] Acionando o Publicador (Upload no YouTube)...")
@@ -127,36 +144,42 @@ def iniciar_esteira(input_str: str):
         limpar_arquivos_temporarios()
         
 if __name__ == "__main__":
-    import random
-    
-    # Lista de tópicos fallback para quando a tarefa rodar 100% autônoma (via Task Scheduler)
-    topicos_autonomos = [
-        "A farsa do sistema financeiro tradicional e a ilusão de trabalhar 8 horas por dia",
-        "Por que o foco extremo é a única habilidade que te salva da mediocridade",
-        "A verdade sobre automação de negócios e renda passiva na nova economia",
-        "Biohacking: como 1 hora de sono a mais gera 10 mil reais a mais na sua conta",
-        "Como a IA está extinguindo o trabalhador mediano em tempo real"
-    ]
-    
     if len(sys.argv) > 1:
-        # Se passado como argumento na linha de comando
-        input_str = sys.argv[1]
+        # Se passado como argumento na linha de comando ou Task Scheduler (.bat)
+        # Modo Fantasma assume a Rota 1 (Trend Hunter)
+        print("Executando em Modo Fantasma (Rota 1: Trend Hunter)...")
+        input_str = buscar_assunto_viral_do_dia()
+        iniciar_esteira(input_str, rota=1)
     elif sys.stdout.isatty():
         # Se rodando interativamente no terminal
         try:
             print("\n" + "="*50)
-            print("Opção A: Rota Viral (Digite um tema amplo e agressivo)")
-            print("Opção B: Máquina de Vendas (Cole uma URL de Landing Page)")
+            print("[1] Trend Hunter Automático")
+            print("[2] URL to Video")
+            print("[3] Tema Manual")
             print("="*50)
-            input_str = input("Digite o tema ou URL (deixe em branco para aleatório): ").strip()
-            if not input_str:
-                input_str = random.choice(topicos_autonomos)
-                print(f"Nenhum input detectado. Usando tópico aleatório: {input_str}")
+            escolha = input("Escolha a rota (1, 2 ou 3): ").strip()
+            
+            if escolha == "1":
+                input_str = buscar_assunto_viral_do_dia()
+                iniciar_esteira(input_str, rota=1)
+            elif escolha == "2":
+                input_str = input("Digite a URL da Landing Page: ").strip()
+                iniciar_esteira(input_str, rota=2)
+            elif escolha == "3":
+                input_str = input("Digite o tema manual: ").strip()
+                duracao = input("Duração? (curta/longa) [padrão: curta]: ").strip()
+                if not duracao: duracao = "curta"
+                iniciar_esteira(input_str, rota=3, duracao=duracao)
+            else:
+                print("Escolha inválida, assumindo Rota 1 (Trend Hunter).")
+                input_str = buscar_assunto_viral_do_dia()
+                iniciar_esteira(input_str, rota=1)
         except EOFError:
             # Em caso de terminais que não suportam input interativo
-            input_str = random.choice(topicos_autonomos)
+            input_str = buscar_assunto_viral_do_dia()
+            iniciar_esteira(input_str, rota=1)
     else:
-        # Se rodando em background (Task Scheduler)
-        input_str = random.choice(topicos_autonomos)
-        
-    iniciar_esteira(input_str)
+        # Se rodando em background
+        input_str = buscar_assunto_viral_do_dia()
+        iniciar_esteira(input_str, rota=1)

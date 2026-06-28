@@ -6,14 +6,14 @@ import importlib
 # é estritamente necessário ter o ImageMagick instalado na máquina.
 os.environ["IMAGEMAGICK_BINARY"] = r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
 
-def montar_video_splitscreen(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None, nome_template: str = "podcast_split") -> str:
+def montar_video_splitscreen(audio_path: str, timestamps: list, json_roteiro: list = None, output_path: str = None, nome_template: str = "podcast_split", **kwargs) -> str:
     """
     Roteador de templates visuais. Repassa os dados para o módulo correspondente em src/templates/.
     """
     try:
         print(f"Roteador visual acionado. Usando template: {nome_template}")
         modulo = importlib.import_module(f"src.templates.{nome_template}")
-        resultado = modulo.render(audio_path, timestamps, json_roteiro, output_path)
+        resultado = modulo.render(audio_path, timestamps, json_roteiro, output_path, **kwargs)
         return resultado
     except ImportError as e:
         raise ValueError(f"Template '{nome_template}' não encontrado em src/templates/. Erro real: {e}")
